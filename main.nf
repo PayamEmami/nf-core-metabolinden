@@ -97,6 +97,13 @@ if(params.need_centroiding==true)
 Channel.fromPath(params.peak_picker_param,checkIfExists: true)
 .set { peak_picker_param }
 }
+
+
+if(params.need_filtering==true)
+{
+Channel.fromPath(params.file_filter_param,checkIfExists: true)
+.set { file_filter_param }
+}
 /*
 * Create a channel for recalibration parameters
 */
@@ -291,7 +298,7 @@ if(params.need_centroiding==true){
     each file(setting_file) from peak_picker_param
 
     output:
-    tuple val("${key}_${setting_file.baseName}"), file("output_${key}_${setting_file.baseName}/${mzMLFile}") into recalibration_channel
+    tuple val("${key}_${setting_file.baseName}"), file("output_${key}_${setting_file.baseName}/${mzMLFile}") into filter_channel
 
     script:
     """
@@ -301,9 +308,36 @@ if(params.need_centroiding==true){
   }
 
   }else{
-    recalibration_channel=mzml_input
+    filter_channel=mzml_input
     log.info "skipping centroiding!"
   }
+
+
+  if(params.need_filtering==true){
+    process process_file_filter_openms  {
+      label 'openms'
+      //label 'process_low'
+      tag "${mzMLFile} using ${setting_file} parameter"
+      publishDir "${params.outdir}/process_file_filter_openms", mode: params.publish_dir_mode, enabled: params.publishDir_intermediate
+
+      input:
+      set val(key), file(mzMLFile) from filter_channel
+      each file(setting_file) from file_filter_param
+
+      output:
+      tuple val("${key}_${setting_file.baseName}"), file("output_${key}_${setting_file.baseName}/${mzMLFile}") into recalibration_channel
+
+      script:
+      """
+      mkdir "output_${key}_${setting_file.baseName}"
+      FileFilter -in $mzMLFile -out "output_${key}_${setting_file.baseName}/$mzMLFile" -ini $setting_file
+      """
+    }
+
+    }else{
+      recalibration_channel=filter_channel
+      log.info "skipping filtering!"
+    }
 
   /*
    * Step 2.  Do recalibration if needed
@@ -509,11 +543,12 @@ if(params.need_linking==true)
 
 
     chunked_output
-         .transpose().groupTuple().set{chunked_input_for_linking}
+         .transpose().groupTuple().into{chunked_input_for_linking}
 
 
     process process_masstrace_linker_openms_chunks  {
       label 'openms'
+
       //label 'process_low'
       tag "${key.unique().join("")}"
       publishDir "${params.outdir}/process_masstrace_linker_openms_chunks", mode: params.publish_dir_mode, enabled: params.publishDir_intermediate
@@ -528,6 +563,7 @@ if(params.need_linking==true)
       script:
       def inputs_aggregated = mzMLFile.collect{ "$it" }.join(" ")
       """
+
       mkdir "output_${key_group}_${setting_file.baseName}"
       mkdir "setting_${key_group}_${setting_file.baseName}"
       FeatureLinkerUnlabeledQT -in $inputs_aggregated -out "output_${key_group}_${setting_file.baseName}/${key_group}_linked_features.consensusXML" -ini $setting_file
@@ -535,7 +571,10 @@ if(params.need_linking==true)
 
       """
     }
-  feature_linking2_input_tmp.groupTuple(by:0).map{a,b,c->tuple(a,b,c[0])}.set{feature_linking2_input}
+
+    println "-----------------"
+  feature_linking2_input_tmp.groupTuple(by:0).map{a,b,c->tuple(a,b,c[0])}.into{feature_linking2_input}
+
 
 if(params.use_same_setting_for_second_linking==false)
 {

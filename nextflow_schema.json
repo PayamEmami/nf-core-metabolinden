@@ -361,34 +361,49 @@
         },
         "feature_linker_param2": {
             "type": "string",
-            "default": "assets/parameters/FeatureLinkerUnlabeledQT.ini"
+            "default": "assets/parameters/FeatureLinkerUnlabeledQT.ini",
+            "description": "If step_wise_linking is True and use_same_setting_for_second_linking"
         },
         "mapper_param": {
             "type": "string",
             "default": "mapper.ini"
         },
         "interactive_plot": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "If True, the plots in the report will interactive."
         },
         "step_wise_linking": {
             "type": "boolean",
-            "default": false
+            "description": "If True, stepwise linking (faster) will be performed instead of one time linking"
         },
         "number_of_files": {
             "type": "integer",
-            "default": 2
+            "default": 2,
+            "description": "The number of files in each chunk."
         },
         "randomize_files": {
             "type": "boolean",
-            "default": false
+            "description": "If True, the files will be randomly chunked"
         },
         "seed_for_linking": {
             "type": "integer",
-            "default": 10
+            "default": 10,
+            "description": "Seed for ranomization"
         },
         "use_same_setting_for_second_linking": {
             "type": "boolean",
-            "default": true
+            "default": true,
+            "description": "If True, same settings will be used for the second stage of the linking as it was used in the first one"
+        },
+        "need_filtering": {
+            "type": "boolean",
+            "default": true,
+            "description": "Set to True if mzML files are to be filtered after peakpicking"
+        },
+        "file_filter_param": {
+            "type": "string",
+            "default": "assets/parameters/fileFilter.ini",
+            "description": "Parameters for FileFilter OpenMS"
         }
     }
 }
