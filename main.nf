@@ -465,7 +465,7 @@ if(params.need_linking==true)
       each file(setting_file) from feature_linker_param
 
       output:
-      set val("${key}_${setting_file.baseName}"), file("output_${key}_${setting_file.baseName}/*.*") into feature_identification_input
+      set val("${key}_${setting_file.baseName}"), file("output_${key}_${setting_file.baseName}/*.*") into feature_identification_input,feature_export_minimal
 
       script:
       def inputs_aggregated = mzMLFile.collect{ "$it" }.join(" ")
@@ -490,7 +490,8 @@ if(params.need_linking==true)
 
       script:
       def old_key=key
-      def input = mzMLFile.collect().sort()
+      def input = mzMLFile.sort{ a,b -> a[0] <=> b[0] }.collect()
+
       def samples_in_chunks=params.number_of_files
       if(samples_in_chunks<=1 || samples_in_chunks>=input.size())
       {
@@ -544,7 +545,6 @@ if(params.need_linking==true)
     chunked_output
          .transpose().groupTuple().into{chunked_input_for_linking}
 
-
     process process_masstrace_linker_openms_chunks  {
       label 'openms'
 
@@ -571,7 +571,6 @@ if(params.need_linking==true)
       """
     }
 
-    println "-----------------"
   feature_linking2_input_tmp.groupTuple(by:0).map{a,b,c->tuple(a,b,c[0])}.into{feature_linking2_input}
 
 
@@ -588,7 +587,7 @@ if(params.use_same_setting_for_second_linking==false)
     each file(setting_file) from feature_linker_param2
 
     output:
-    set val("${key}_${st_file.baseName}"), file("output_${key}_${st_file.baseName}/*.*") into feature_identification_input
+    set val("${key}_${st_file.baseName}"), file("output_${key}_${st_file.baseName}/*.*") into feature_identification_input, feature_export_minimal
 
     script:
     def inputs_aggregated = mzMLFile.collect{ "$it" }.join(" ")
@@ -608,7 +607,7 @@ if(params.use_same_setting_for_second_linking==false)
     set val(key), file(mzMLFile),file(st_file) from feature_linking2_input
 
     output:
-    set val("${key}_${st_file.baseName}"), file("output_${key}_${st_file.baseName}/*.*") into feature_identification_input
+    set val("${key}_${st_file.baseName}"), file("output_${key}_${st_file.baseName}/*.*") into feature_identification_input, feature_export_minimal
 
     script:
     def inputs_aggregated = mzMLFile.collect{ "$it" }.join(" ")
@@ -626,7 +625,64 @@ if(params.use_same_setting_for_second_linking==false)
 
 }else{
 
-  feature_identification_input=feature_linker_input
+  feature_linker_input.into{feature_identification_input;feature_export_minimal}
+}
+
+if(params.need_minimal_exporting==true)
+{
+  process process_minimal_export  {
+    label 'openms'
+    //label 'process_low'
+    echo true
+    tag "${key}"
+
+    publishDir "${params.outdir}/minimal_export", mode: params.publish_dir_mode, enabled: params.publishDir_intermediate
+
+    input:
+    set val(key), file(input) from feature_export_minimal
+    output:
+    set val("${key}_${input.baseName}"), file("output_${key}/${input.baseName}.tsv") into exit_export
+
+
+    """
+    #!/usr/bin/env python3.9
+import pyopenms as po
+import numpy as np
+import os
+
+os.mkdir("output_${key}")
+inputs="${input}"
+output="output_${key}/${input.baseName}.tsv"
+cmap = po.ConsensusMap()
+po.ConsensusXMLFile().load("${input}", cmap)
+
+cmap.sortBySize()
+
+column_headers=["mz_cf","rt_cf","charge_cf","intensity_cf"]
+
+headers_name=cmap.getColumnHeaders()
+header_keys=[]
+for hdr in headers_name:
+  header_keys.append(hdr)
+  column_headers.append("intensity_"+headers_name[hdr].filename)
+i=0
+with open(output, 'w') as f:
+  f.write('\\t'.join(column_headers) + '\\n')
+  for cfeature in cmap:
+      i=i+1
+      int_info=["NA" for number in range(len(column_headers))]
+      cfeature.computeConsensus()
+      int_info[0]=str(cfeature.getMZ())
+      int_info[1]=str(cfeature.getRT())
+      int_info[2]=str(cfeature.getRT())
+      int_info[3]=str(cfeature.getIntensity())
+      for fh in cfeature.getFeatureList():
+        int_info[header_keys.index(fh.getMapIndex())+4]=str(fh.getIntensity())
+      f.write('\\t'.join(int_info) + '\\n')
+print("${key}--${input}"+"===="+str(i))
+    """
+
+  }
 }
 
 /*
