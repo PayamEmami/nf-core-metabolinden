@@ -490,8 +490,7 @@ if(params.need_linking==true)
 
       script:
       def old_key=key
-      def input = mzMLFile.collect()
-
+      def input = mzMLFile.collect().sort()
       def samples_in_chunks=params.number_of_files
       if(samples_in_chunks<=1 || samples_in_chunks>=input.size())
       {
