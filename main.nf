@@ -648,6 +648,7 @@ if(params.need_minimal_exporting==true)
 import pyopenms as po
 import numpy as np
 import os
+import hashlib
 
 os.mkdir("output_${key}")
 inputs="${input}"
@@ -657,7 +658,7 @@ po.ConsensusXMLFile().load("${input}", cmap)
 
 cmap.sortBySize()
 
-column_headers=["mz_cf","rt_cf","charge_cf","intensity_cf"]
+column_headers=["met_id","mz_cf","rt_cf","charge_cf","intensity_cf"]
 
 headers_name=cmap.getColumnHeaders()
 header_keys=[]
@@ -670,13 +671,14 @@ with open(output, 'w') as f:
   for cfeature in cmap:
       i=i+1
       int_info=["NA" for number in range(len(column_headers))]
-      cfeature.computeConsensus()
-      int_info[0]=str(cfeature.getMZ())
-      int_info[1]=str(cfeature.getRT())
-      int_info[2]=str(cfeature.getCharge())
-      int_info[3]=str(cfeature.getIntensity())
+      #cfeature.computeConsensus()
+      int_info[0]=str(i)
+      int_info[1]=str(cfeature.getMZ())
+      int_info[2]=str(cfeature.getRT())
+      int_info[3]=str(cfeature.getCharge())
+      int_info[4]=str(cfeature.getIntensity())
       for fh in cfeature.getFeatureList():
-        int_info[header_keys.index(fh.getMapIndex())+4]=str(fh.getIntensity())
+        int_info[header_keys.index(fh.getMapIndex())+5]=str(fh.getIntensity())
       f.write('\\t'.join(int_info) + '\\n')
     """
 
@@ -836,7 +838,7 @@ qc_input=feature_identification_input
 
      """
      mkdir "output_${key}"
-     TextExporter -in $consensusXML -out "output_${key}/${consensusXML.baseName}.tsv" -feature:add_metavalues 0 -id:add_metavalues 0
+     TextExporter -in $consensusXML -out "output_${key}/${consensusXML.baseName}.tsv" -feature:add_metavalues 0 -id:add_metavalues 0 -consensus:sort_by_size
      """
    }
 
