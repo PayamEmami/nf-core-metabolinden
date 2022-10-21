@@ -404,6 +404,11 @@
             "type": "string",
             "default": "assets/parameters/fileFilter.ini",
             "description": "Parameters for FileFilter OpenMS"
+        },
+        "need_minimal_exporting": {
+            "type": "boolean",
+            "description": "If true, a minimal output will be produced that only contains consensus elements and intensities for samples",
+            "default": true
         }
     }
 }

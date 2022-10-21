@@ -633,7 +633,6 @@ if(params.need_minimal_exporting==true)
   process process_minimal_export  {
     label 'openms'
     //label 'process_low'
-    echo true
     tag "${key}"
 
     publishDir "${params.outdir}/minimal_export", mode: params.publish_dir_mode, enabled: params.publishDir_intermediate
@@ -674,12 +673,11 @@ with open(output, 'w') as f:
       cfeature.computeConsensus()
       int_info[0]=str(cfeature.getMZ())
       int_info[1]=str(cfeature.getRT())
-      int_info[2]=str(cfeature.getRT())
+      int_info[2]=str(cfeature.getCharge())
       int_info[3]=str(cfeature.getIntensity())
       for fh in cfeature.getFeatureList():
         int_info[header_keys.index(fh.getMapIndex())+4]=str(fh.getIntensity())
       f.write('\\t'.join(int_info) + '\\n')
-print("${key}--${input}"+"===="+str(i))
     """
 
   }
