@@ -85,7 +85,7 @@ return(groups)
 Channel.fromPath(params.input,checkIfExists: true)
 .map{def key = "start"
 return tuple(key, it)}
- .set { mzml_input}//.map { tag, files -> tuple( groupKey(tag, files.size()), files ) }
+ .into { mzml_input;cut_mzml_mzmlraw}//.map { tag, files -> tuple( groupKey(tag, files.size()), files ) }
 //.transpose()
 
 /*
@@ -701,7 +701,7 @@ process convert_library_to_idXML  {
 
 
   output:
-  file "${libfile.baseName}/${libfile.baseName}.idXML" into libsearch_database
+  file "${libfile.baseName}/${libfile.baseName}.idXML" into libsearch_database,cut_mzml_id
 
   """
   #!/usr/bin/env python3.9
@@ -813,7 +813,119 @@ process process_masstrace_matchlib_openms  {
   """
 }
 
+if(params.output_ranges==true)
+{
 
+  process output_ranges_rawmzml  {
+    label 'openms'
+    //label 'process_low'
+    tag "$mzml_input"
+    publishDir "${params.outdir}/output_ranges_rawmzml", mode: params.publish_dir_mode, enabled: params.publishDir_intermediate
+    stageInMode 'copy'
+
+    input:
+    set val(key), file(mzml_input) from cut_mzml_mzmlraw
+    each file(idfile) from cut_mzml_id
+
+
+    output:
+    file "${mzml_input.baseName}.mzML" into output_output_ranges_rawmzml
+
+    """
+    #!/usr/bin/env python3.9
+
+    from pyopenms import *
+
+
+    prot_ids = []; pep_ids = [];
+    IdXMLFile().load("$idfile", prot_ids, pep_ids)
+    exp = MSExperiment()
+    MzMLFile().load("$mzml_input", exp)
+
+
+    def ppm_calc(th,exp):
+      return ((th-exp)/th)*1000000
+
+    scaller_mz=$params.scaller_internal_database_ppm_tolerance
+    ppm_tol=$params.internal_database_ppm_tolerance*scaller_mz
+    scaller_rt=$params.scaller_internal_database_rt_tolerance
+    rt_tol=$params.internal_database_rt_tolerance*scaller_rt
+
+    spec = []
+    for spectrum in exp:
+        spectrum_tr = MSSpectrum()
+        spectrum_tr.setRT(spectrum.getRT())
+        spectrum_tr.setMSLevel(1)
+        for peptide_id in pep_ids:
+          if abs(peptide_id.getRT()-spectrum.getRT())<rt_tol:
+            for peak in spectrum:
+                if abs(ppm_calc(peptide_id.getMZ(),peak.getMZ()))<ppm_tol:
+                  spectrum_tr.push_back(peak)
+        if spectrum_tr.size() > 0:
+           spec.append(spectrum_tr)
+
+
+    ## get max and min
+
+    max_mz=0
+    min_mz=10000000
+    max_rt=0
+    min_rt=10000000
+
+    for spectrum in exp:
+        spectrum_tr = MSSpectrum()
+        spectrum_tr.setRT(spectrum.getRT())
+        spectrum_tr.setMSLevel(1)
+        if spectrum.getRT()>max_rt:
+          max_rt=spectrum.getRT()
+        if spectrum.getRT()<min_rt:
+          min_rt=spectrum.getRT()
+        for peak in spectrum:
+          if peak.getMZ()>max_mz:
+            max_mz=peak.getMZ()
+          if peak.getMZ()<min_mz:
+            min_mz=peak.getMZ()
+
+
+
+    spectrum_tr = MSSpectrum()
+    spectrum_tr.setRT(max_rt)
+    spectrum_tr.setMSLevel(1)
+    peak = Peak1D()
+    peak.setMZ(max_mz)
+    peak.setIntensity(10000 )
+    spectrum_tr.push_back(peak)
+    peak = Peak1D()
+    peak.setMZ(min_mz)
+    peak.setIntensity(10000 )
+    spectrum_tr.push_back(peak)
+    spec.append(spectrum_tr)
+
+    spectrum_tr = MSSpectrum()
+    spectrum_tr.setRT(min_rt)
+    spectrum_tr.setMSLevel(1)
+    peak = Peak1D()
+    peak.setMZ(min_mz)
+    peak.setIntensity(10000 )
+    spectrum_tr.push_back(peak)
+    peak = Peak1D()
+    peak.setMZ(max_mz)
+    peak.setIntensity(10000 )
+    spectrum_tr.push_back(peak)
+    spec.append(spectrum_tr)
+
+
+
+    exp.setSpectra(spec)
+
+
+    MzMLFile().store("${mzml_input.baseName}.mzML", exp)
+
+
+    """
+  }
+
+}
 }else{
 
 qc_input=feature_identification_input

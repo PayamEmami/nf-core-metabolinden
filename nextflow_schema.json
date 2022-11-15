@@ -409,6 +409,20 @@
             "type": "boolean",
             "description": "If true, a minimal output will be produced that only contains consensus elements and intensities for samples",
             "default": true
+        },
+        "output_ranges": {
+            "type": "boolean",
+            "description": "If ture, the spectra that matches the internal database (within a tolerance) will be outputed"
+        },
+        "scaller_internal_database_ppm_tolerance": {
+            "type": "integer",
+            "default": 1,
+            "description": "internal_database_ppm_tolerance will be scalled by this"
+        },
+        "scaller_internal_database_rt_tolerance": {
+            "type": "integer",
+            "default": 1,
+            "description": "internal_database_rt_tolerance will be scalled by this"
         }
     }
 }
